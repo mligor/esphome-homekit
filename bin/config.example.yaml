@@ -1,3 +1,4 @@
+log_level: debug
 name: mylight
 address: mylight.local:6053
 password: MY_API_PASSWORD

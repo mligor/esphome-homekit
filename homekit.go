@@ -4,9 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/brutella/hap"
 	"github.com/brutella/hap/accessory"
@@ -282,7 +279,7 @@ func (s *svc) createService(e *entity) (sv *service.S, err error) {
 	return
 }
 
-func (s *svc) initializeHomeKit() (err error) {
+func (s *svc) initializeHomeKit(ctx context.Context) (err error) {
 
 	a, err := s.createAccessory()
 	if err != nil {
@@ -290,7 +287,9 @@ func (s *svc) initializeHomeKit() (err error) {
 		return
 	}
 
-	for _, e := range s.entities {
+	entities := s.entities.sorted()
+
+	for _, e := range entities {
 		svc, err := s.createService(e)
 		if err != nil {
 			logrus.WithError(err).Error("unable to create service")
@@ -299,160 +298,16 @@ func (s *svc) initializeHomeKit() (err error) {
 		if svc == nil {
 			continue
 		}
-		svc.Id = uint64(e.Key)
+		logrus.WithField("svc", svc.Type).Debug("added new service")
 		a.AddS(svc)
 	}
 
-	// log.Info.Enable()
-	// log.Debug.Enable()
-
-	// lightID := uint32(1935470627)
-	// switchID := uint32(3202316517)
-	// powerID := uint32(2391494160)
+	s.wg.Add(1)
 
 	go func() {
+		defer s.wg.Done()
 
-		// powerCo := characteristic.NewInt("1F10D5F1-01F5-470B-AE88-34E34EFA19B7")
-		// powerCo.Format = characteristic.FormatUInt8
-		// powerCo.Permissions = []string{characteristic.PermissionRead, characteristic.PermissionEvents}
-		// powerCo.SetMinValue(0)
-		// powerCo.SetMaxValue(100)
-		// powerCo.SetStepValue(1)
-		// powerCo.SetValue(0)
-		// powerCo.Description = "Power Consumption"
-		// powerCo.Unit = "W" //characteristic.UnitPercentage
-		// powerCoLastValue := int(0)
-		// powerCo.Id = 10001
-
-		// batLevel := characteristic.NewBatteryLevel()
-		// batLevel.Id = 10002
-
-		// powerEntry := s.entities[uint32(powerID)]
-		// powerEntry.OnUpdate = func(newState interface{}) {
-		// 	s, ok := newState.(*api.SensorStateResponse)
-		// 	if ok {
-		// 		//newState := math.Floor(float64(s.State)*100) / 100
-		// 		newState := int(math.Floor(float64(s.State)))
-
-		// 		if powerCoLastValue != newState {
-		// 			batLevel.SetValue(newState)
-
-		// 			logrus.Debugf("new power consuption: %+v", newState)
-		// 			powerCo.SetValue(newState)
-		// 			powerCoLastValue = newState
-		// 		}
-		// 	} else {
-		// 		logrus.Errorf("invalid power state: %+v", newState)
-		// 	}
-		// }
-
-		// powerCo.OnValueRemoteUpdate(func(v int) {
-		// 	logrus.Debugf("set new value : %v", v)
-		// })
-
-		// s.entities[uint32(powerID)] = powerEntry
-		// a.Lightbulb.AddC(powerCo.C)
-		// a.Lightbulb.AddC(batLevel.C)
-
-		// service.NewSwitch()
-
-		// sw := service.NewStatelessProgrammableSwitch()
-		// sw.ProgrammableSwitchEvent.MaxVal = 1
-		// a.AddS(sw.S)
-
-		// // sw2 := service.NewSwitch()
-
-		// // sw2.On.Permissions = []string{characteristic.PermissionEvents}
-		// // a.AddS(sw2.S)
-		// // sw2.On.SetValue(true)
-
-		// //sw.Id = 2
-
-		// fs := hap.NewFsStore("./hk")
-		// lightEntity := s.entities[uint32(lightID)]
-
-		// lightEntity.OnUpdate = func(newState interface{}) {
-		// 	s, ok := newState.(*api.SwitchStateResponse)
-		// 	if ok {
-		// 		a.Lightbulb.On.SetValue(s.State)
-		// 	} else {
-
-		// 		logrus.Errorf("invalid state: %+v", newState)
-		// 	}
-		// }
-
-		// s.entities[uint32(lightID)] = lightEntity
-
-		// a.Lightbulb.On.OnValueRemoteUpdate(func(on bool) {
-		// 	if on {
-		// 		logrus.Debug("Client changed light to on")
-
-		// 	} else {
-		// 		logrus.Debug("Client changed light to off")
-		// 	}
-
-		// 	err := s.esphomeClient.Send(&api.SwitchCommandRequest{
-		// 		Key:   uint32(lightID),
-		// 		State: on,
-		// 	})
-
-		// 	if err != nil {
-		// 		logrus.WithError(err).Error("error sending request to homekit")
-		// 	}
-
-		// })
-
-		// switchEntity := s.entities[uint32(switchID)]
-
-		// switchEntity.OnUpdate = func(newState interface{}) {
-		// 	s, ok := newState.(*api.BinarySensorStateResponse)
-		// 	if ok {
-		// 		//sw2.On.SetValue(s.State)
-		// 		if s.State {
-		// 			sw.ProgrammableSwitchEvent.SetValue(0)
-		// 		} else {
-		// 			sw.ProgrammableSwitchEvent.SetValue(1)
-
-		// 		}
-		// 	} else {
-		// 		logrus.Errorf("invalid state for switch: %+v", newState)
-		// 	}
-		// }
-
-		// test := accessory.NewAirPurifier(accessory.Info{
-		// 	Name:         "Test",
-		// 	Manufacturer: "mligor",
-		// 	Model:        "esphome-homekit",
-		// 	Firmware:     ver,
-		// })
-
-		// test.Id = 4
-
-		// swingMode := characteristic.NewSwingMode()
-		// test.AirPurifier.AddC(swingMode.C)
-		// test.AirPurifier.AddC(characteristic.NewRotationSpeed().C)
-
-		// door := accessory.New(accessory.Info{
-		// 	Name:         "Door Bell",
-		// 	Manufacturer: "mligor",
-		// 	Model:        "esphome-homekit",
-		// 	Firmware:     ver,
-		// }, accessory.TypeVideoDoorbell)
-
-		// door.Id = 6
-		// doorBell := service.NewDoorbell()
-		// doorBell.Primary = true
-		// nameC := characteristic.NewName()
-		// nameC.SetValue("Mladenovic")
-		// doorBell.AddC(nameC.C)
-		// doorBell.ProgrammableSwitchEvent.MinVal = 0
-		// doorBell.ProgrammableSwitchEvent.MaxVal = 0
-		// doorBell.Hidden = false
-
-		// door.AddS(doorBell.S)
-		// door.AddS(service.NewCameraRTPStreamManagement().S)
-		// door.AddS(service.NewSpeaker().S)
-		// door.AddS(service.NewMicrophone().S)
+		logrus.Debug("starting homekit server")
 
 		// Create the hap server.
 		fs := hap.NewFsStore(s.homekitStorageDir)
@@ -463,23 +318,10 @@ func (s *svc) initializeHomeKit() (err error) {
 
 		server.Pin = s.homekitPIN
 
-		// Setup a listener for interrupts and SIGTERM signals
-		// to stop the server.
-		c := make(chan os.Signal)
-		signal.Notify(c, os.Interrupt)
-		signal.Notify(c, syscall.SIGTERM)
-
-		ctx, cancel := context.WithCancel(context.Background())
-		go func() {
-			<-c
-			// Stop delivering signals.
-			signal.Stop(c)
-			// Cancel the context to stop the server.
-			cancel()
-		}()
-
 		// Run the server.
 		server.ListenAndServe(ctx)
+
+		logrus.Debug("finishing homekit server")
 
 	}()
 
