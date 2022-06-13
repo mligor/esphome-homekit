@@ -15,16 +15,34 @@
     },
     "tasks": [
         {
+            "options": {
+                "env": {
+                }
+            },
             "label": "build",
-            "command": "go build -v -x -ldflags=\"-s -w\" -o ${workspaceFolder}/esphome-homekit-service ./cmd/ && echo done",
+            "command": "go build -v -x -ldflags=\"-s -w\" -o ${workspaceFolder}/bin/esphome-homekit-service ./cmd/ && echo done",
             "group": {
                 "kind": "build",
                 "isDefault": true
             },
             "problemMatcher": "$go",
-            "windows": {
-                "command": "go build -v -x -ldflags=\"-s -w\" -o ${workspaceFolder}/bin/esphome-homekit-service.exe ./cmd/ && echo done",
-            }
+         
+        },
+        {
+            "options": {
+                "env": {
+                    "GOARCH": "arm",
+                    "GOOS": "linux"
+                }
+            },
+            "label": "build for rPI",
+            "command": "go build -v -x -ldflags=\"-s -w\" -o ${workspaceFolder}/bin/esphome-homekit-service_rpi ./cmd/ && echo done",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": "$go",
+         
         }
     ]
 }

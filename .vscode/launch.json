@@ -13,14 +13,10 @@
             "args": [
                 "--log_level=trace",
             ],
+            "env": {
+            },
             "buildFlags": "-x -v",
             "output": "${workspaceFolder}/bin/esphome-homekit-service",
-            "windows": {
-                "output": "${workspaceFolder}/bin/esphome-homekit-service.exe",
-                "env": {
-                    "LOG_FORMAT": "color"
-                }
-            },
             "cwd": "${workspaceFolder}/bin/",
         }
     ]

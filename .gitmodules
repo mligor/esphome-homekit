@@ -1,0 +1,3 @@
+[submodule "libs/esphome-go"]
+	path = libs/esphome-go
+	url = https://github.com/mligor/esphome-go.git
