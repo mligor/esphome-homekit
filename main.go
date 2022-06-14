@@ -38,6 +38,46 @@ func New() ESPHomeService {
 	}
 }
 
+func (s *svc) connectToESPHome(subscribeStates bool) (err error) {
+
+	if s.esphomeClient != nil {
+		s.esphomeClient = nil
+	}
+
+	address := viper.GetString("address")
+	s.esphomeClient, err = esphome.Init(s.name, address, time.Second*10, s.esphomeHandler)
+	if err != nil {
+		logrus.WithError(err).Error("unable to init client")
+		return
+	}
+
+	helloResponse, err := s.esphomeClient.Hello()
+	if err != nil {
+		logrus.WithError(err).Error("no answer from hello")
+		return
+	}
+	logrus.Debugf("hello response : %v", helloResponse)
+
+	password := viper.GetString("password")
+	err = s.esphomeClient.Login(password)
+	if err != nil {
+		logrus.WithError(err).Error("unable to login to client")
+		return
+	}
+
+	if subscribeStates {
+		err = s.esphomeClient.SubscribeStates()
+		if err != nil {
+			logrus.WithError(err).Error("unable to subscribe for states")
+			s.esphomeClient.Close()
+		}
+	} else {
+		s.esphomeInfo = helloResponse
+	}
+
+	return
+}
+
 func (s *svc) Start() (err error) {
 
 	viper.SetDefault("log_level", "warning")
@@ -54,7 +94,12 @@ func (s *svc) Start() (err error) {
 	if err != nil {
 		logrus.WithError(err).Fatal("unable to read config")
 	}
-	logrus.SetFormatter(&logrus.TextFormatter{ForceColors: true})
+
+	customFormatter := new(logrus.TextFormatter)
+	customFormatter.TimestampFormat = "2006-01-02 15:04:05"
+	customFormatter.FullTimestamp = true
+	customFormatter.ForceColors = true
+	logrus.SetFormatter(customFormatter)
 
 	logLevel, err := logrus.ParseLevel(viper.GetString("log_level"))
 	if err != nil {
@@ -65,8 +110,6 @@ func (s *svc) Start() (err error) {
 
 	s.name = viper.GetString("name")
 	s.homekitPIN = viper.GetString("homekit.pin")
-	address := viper.GetString("address")
-	password := viper.GetString("password")
 	s.homekitStorageDir = viper.GetString("homekit.storage_dir")
 	if s.homekitStorageDir == "" {
 		s.homekitStorageDir = "./.homekit"
@@ -81,35 +124,49 @@ func (s *svc) Start() (err error) {
 
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 
-	s.esphomeClient, err = esphome.Init(s.name, address, time.Second*10, s.esphomeHandler)
+	err = s.connectToESPHome(false)
 	if err != nil {
-		logrus.WithError(err).Error("unable to init client")
+		logrus.WithError(err).Error("unable to connect to esphome")
 		return
 	}
-
 	defer s.esphomeClient.Close()
-
-	helloResponse, err := s.esphomeClient.Hello()
-	if err != nil {
-		logrus.WithError(err).Error("no answer from hello")
-		return
-	}
-
-	err = s.esphomeClient.Login(password)
-	if err != nil {
-		logrus.WithError(err).Error("unable to login to client")
-		return
-	}
-
-	s.esphomeInfo = helloResponse
-
-	logrus.Debugf("hello response : %v", helloResponse)
 
 	err = s.esphomeClient.ListEntities()
 	if err != nil {
 		logrus.WithError(err).Error("error when listing entries")
 		return
 	}
+
+	pingTicker := time.NewTicker(15 * time.Second)
+	defer pingTicker.Stop()
+
+	go func() {
+		errorCounter := 0
+		for _ = range pingTicker.C {
+
+			if s.esphomeClient != nil {
+				logrus.Debug("pinging esphome")
+				pingError := s.esphomeClient.Ping()
+				if pingError != nil {
+					logrus.WithError(pingError).Errorf("error pinging esphome")
+					errorCounter++
+				} else {
+					errorCounter = 0
+				}
+
+				if errorCounter >= 2 {
+					errorCounter = 0
+					// Try to reconnect
+					logrus.Debug("reconnecting esphome")
+					connectError := s.connectToESPHome(true)
+					if connectError != nil {
+						logrus.WithError(connectError).Errorf("error connecting to esphome")
+					}
+				}
+			}
+
+		}
+	}()
 
 	<-c // block until we got interupt signal
 	// Stop delivering signals.
