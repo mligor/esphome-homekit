@@ -35,6 +35,47 @@ This bridge is still in development phase and not all `esphome` features/types a
 
 Will Always be created single accessory with multiple HomeKit services.
 
+## Install as Service on Linux (Raspberry Pi)
+
+Create systemd service file - for example `esphk-bathroommirror.service`
+
+```conf
+[Unit]
+Description=ESPHome-HomeKit Bathroom Mirror
+After=network.target
+
+[Service]
+Type=simple
+Restart=on-failure
+User=pi
+ExecStart=/usr/bin/esphome-homekit
+WorkingDirectory=/home/pi/smart-home/bathroommirror
+
+[Install]
+WantedBy=multi-user.target
+
+```
+
+Install and start service
+
+```bash
+sudo ln -s /home/pi/smart-home/bathroommirror/esphk-bathroommirror.service /lib/systemd/system/esphk-bathroommirror.service
+
+sudo systemctl daemon-reload
+
+sudo systemctl enable esphk-bathroommirror
+
+sudo systemctl start esphk-bathroommirror
+```
+
+To check the log use
+
+```bash
+journalctl -fu esphk-bathroommirror
+```
+
+
+
 ## Thanks to...
 - [mycontroller-org/esphome_api](https://github.com/mycontroller-org/esphome_api) - `esphome` API library to connect with `esphome` device
 - [brutella/hap](https://github.com/brutella/hap) - great library that makes possible creating HomeKit devices using Golang
