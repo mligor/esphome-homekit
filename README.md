@@ -43,10 +43,12 @@ Create systemd service file - for example `esphk-bathroommirror.service`
 [Unit]
 Description=ESPHome-HomeKit Bathroom Mirror
 After=network.target
+StartLimitIntervalSec=0
 
 [Service]
+RestartSec=1
 Type=simple
-Restart=on-failure
+Restart=always
 User=pi
 ExecStart=/usr/bin/esphome-homekit
 WorkingDirectory=/home/pi/smart-home/bathroommirror
